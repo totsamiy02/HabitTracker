@@ -1,0 +1,54 @@
+# Android Studio, Gradle и локальное окружение
+.idea/
+*.iml
+.gradle/
+.kotlin/
+build/
+local.properties
+.externalNativeBuild/
+.cxx/
+captures/
+.DS_Store
+
+# Локальные ключи, токены и параметры подписи
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets.properties
+keystore.properties
+key.properties
+signing.properties
+credentials.json
+service-account*.json
+google-services.json
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Установочные пакеты и локальные данные
+*.apk
+*.aab
+*.apks
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+habittracker-backup*.json
+/backups/
+
+# Локальные дизайн-черновики и скриншоты
+/mockups/
+/screenshots/
+/docs/mockups/
+/docs/screenshots/
+/docs/palette-preview.png
+/docs/today-plum-lavender.png
+/docs/*-growth.png
+/docs/habit-flow-*.png
+/docs/settings-flow.png
