@@ -21,6 +21,10 @@ import com.yaroslav.habittracker.tasks.TASK_TITLE_LIMIT
 import com.yaroslav.habittracker.timer.FocusSession
 import com.yaroslav.habittracker.timer.MAX_SESSION_MINUTES
 import com.yaroslav.habittracker.timer.SessionHabit
+import com.yaroslav.habittracker.work.SHIFT_TITLE_LIMIT
+import com.yaroslav.habittracker.work.ShiftHours
+import com.yaroslav.habittracker.work.ShiftTemplate
+import com.yaroslav.habittracker.work.WorkShift
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -30,7 +34,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal const val BACKUP_FORMAT = 4
+internal const val BACKUP_FORMAT = 5
 private const val MAX_BACKUP_BYTES = 8L * 1024 * 1024
 private const val MAX_JSON_DEPTH = 16
 
@@ -141,8 +145,43 @@ internal fun readBackup(input: InputStream): BackupPayload {
     } else emptyList()
     unique(tasks.map(ChecklistTask::id))
 
-    return BackupPayload(version.toInt(), HabitSnapshot(habits, completions, sessions, links, plans, skips, tasks))
+    val shifts = if (version >= 5L) root.objects("shifts").map { shift ->
+        WorkShift(
+            id = shift.id("id"),
+            day = shift.date("date"),
+            title = shift.title("title", SHIFT_TITLE_LIMIT),
+            night = shift.flag("night"),
+            planned = shift.required("planned").objectValue().shiftHours(),
+            hourlyKopecks = shift.optionalNumber("hourlyKopecks"),
+            actual = shift.required("actual")?.objectValue()?.shiftHours(),
+        ).also { verify(it.isValid()) }
+    } else emptyList()
+    unique(shifts.map(WorkShift::id))
+
+    val templates = if (version >= 5L) root.objects("shiftTemplates").map { template ->
+        ShiftTemplate(
+            id = template.id("id"),
+            title = template.title("title", SHIFT_TITLE_LIMIT),
+            night = template.flag("night"),
+            hours = template.required("hours").objectValue().shiftHours(),
+            hourlyKopecks = template.optionalNumber("hourlyKopecks"),
+        ).also { verify(it.isValid()) }
+    } else emptyList()
+    unique(templates.map(ShiftTemplate::id))
+
+    return BackupPayload(
+        version.toInt(),
+        HabitSnapshot(habits, completions, sessions, links, plans, skips, tasks, shifts, templates),
+    )
 }
+
+private fun Map<*, *>.flag(key: String): Boolean = required(key) as? Boolean ?: throw InvalidBackup()
+
+private fun Map<*, *>.shiftHours() = ShiftHours(
+    int("startMinute", 0..1_439),
+    int("endMinute", 0..1_439),
+    int("breakMinutes", 0..1_439),
+)
 
 private class CappedBackupStream(input: InputStream) : FilterInputStream(input) {
     private var readBytes = 0L

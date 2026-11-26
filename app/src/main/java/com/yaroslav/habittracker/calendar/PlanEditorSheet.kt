@@ -224,7 +224,7 @@ internal fun CalendarDateDialog(epochDay: Long, dismiss: () -> Unit, select: (Lo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanTimeDialog(minuteOfDay: Int, dismiss: () -> Unit, select: (Int) -> Unit) {
+internal fun PlanTimeDialog(minuteOfDay: Int, dismiss: () -> Unit, select: (Int) -> Unit) {
     val state = rememberTimePickerState(
         initialHour = minuteOfDay / 60,
         initialMinute = minuteOfDay % 60,

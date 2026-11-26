@@ -28,6 +28,9 @@ import com.yaroslav.habittracker.timer.ActiveTimer
 import com.yaroslav.habittracker.timer.FocusSession
 import com.yaroslav.habittracker.timer.SessionHabit
 import com.yaroslav.habittracker.timer.TimerDao
+import com.yaroslav.habittracker.work.ShiftTemplate
+import com.yaroslav.habittracker.work.WorkDao
+import com.yaroslav.habittracker.work.WorkShift
 import java.time.DayOfWeek
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -113,6 +116,8 @@ data class HabitSnapshot(
     val plans: List<DayPlan>,
     val skips: List<PlanSkip>,
     val tasks: List<ChecklistTask>,
+    val shifts: List<WorkShift> = emptyList(),
+    val templates: List<ShiftTemplate> = emptyList(),
 )
 
 @Dao
@@ -194,9 +199,15 @@ interface HabitDao {
     @Query("SELECT * FROM tasks ORDER BY id")
     suspend fun allTasks(): List<ChecklistTask>
 
+    @Query("SELECT * FROM work_shifts ORDER BY day, startMinute, id")
+    suspend fun allShifts(): List<WorkShift>
+
+    @Query("SELECT * FROM shift_templates ORDER BY id")
+    suspend fun allTemplates(): List<ShiftTemplate>
+
     @Transaction
     suspend fun snapshot() = HabitSnapshot(
-        allHabits(), allCompletions(), allSessions(), allLinks(), allPlans(), allSkips(), allTasks(),
+        allHabits(), allCompletions(), allSessions(), allLinks(), allPlans(), allSkips(), allTasks(), allShifts(), allTemplates(),
     )
 }
 
@@ -204,14 +215,19 @@ interface HabitDao {
     entities = [
         Habit::class, HabitCompletion::class, FocusSession::class, SessionHabit::class,
         ActiveTimer::class, DayPlan::class, PlanSkip::class, ChecklistTask::class,
+        WorkShift::class, ShiftTemplate::class,
     ],
-    version = 4,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    version = 5,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
+    ],
 )
 abstract class HabitDatabase : RoomDatabase() {
     abstract fun habits(): HabitDao
     internal abstract fun timer(): TimerDao
     internal abstract fun calendar(): CalendarDao
     internal abstract fun tasks(): TaskDao
+    internal abstract fun work(): WorkDao
     internal abstract fun restore(): RestoreDao
 }

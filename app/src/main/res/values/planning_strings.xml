@@ -47,7 +47,7 @@
     <string name="plan_reminder_before">За %1$d мин</string>
     <string name="plan_reminder_channel">Напоминания о планах</string>
     <string name="plan_reminder_generic">Напоминание о занятии</string>
-    <string name="plan_reminder_open">Открыть календарь</string>
+    <string name="plan_reminder_open">Открыть график</string>
     <string name="plan_reminder_allow">Разрешить уведомления</string>
     <string name="plan_reminder_settings">Настройки уведомлений</string>
     <string name="plan_reminder_disabled">Уведомления выключены. План сохранится, а напоминание заработает после разрешения.</string>

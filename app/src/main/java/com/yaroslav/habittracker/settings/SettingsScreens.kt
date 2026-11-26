@@ -128,6 +128,8 @@ internal fun ExportScreen(
     completionCount: Long,
     sessionCount: Int,
     planCount: Int,
+    shiftCount: Int,
+    templateCount: Int,
 ) {
     val saveDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -153,6 +155,8 @@ internal fun ExportScreen(
                 CountRow(R.string.backup_sessions, numberFormat.format(sessionCount))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 CountRow(R.string.calendar_backup_plans, numberFormat.format(planCount))
+                CountRow(R.string.work_shifts, numberFormat.format(shiftCount))
+                CountRow(R.string.work_templates, numberFormat.format(templateCount))
                 Text(stringResource(R.string.backup_mosaic), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall)
             }

@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yaroslav.habittracker.R
 
@@ -43,6 +44,7 @@ internal fun AppIcon(
 @Composable
 internal fun ScreenContent(
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 20.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -51,7 +53,7 @@ internal fun ScreenContent(
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = horizontalPadding, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content,
         )

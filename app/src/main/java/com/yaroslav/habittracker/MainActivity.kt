@@ -71,6 +71,7 @@ import com.yaroslav.habittracker.ui.AppIcon
 import com.yaroslav.habittracker.ui.ErrorScreen
 import com.yaroslav.habittracker.ui.LoadingScreen
 import com.yaroslav.habittracker.ui.theme.HabitTrackerTheme
+import com.yaroslav.habittracker.work.WorkViewModel
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZonedDateTime
@@ -81,6 +82,7 @@ class MainActivity : ComponentActivity() {
     private val habits by viewModels<HabitsViewModel>()
     private val settings by viewModels<SettingsViewModel>()
     private val calendar by viewModels<CalendarViewModel>()
+    private val work by viewModels<WorkViewModel>()
     private val timer by viewModels<TimerViewModel>()
     private val tasks by viewModels<TaskViewModel>()
     private val week by viewModels<WeekViewModel>()
@@ -102,7 +104,7 @@ class MainActivity : ComponentActivity() {
         routeNotification(intent)
         setContent {
             HabitTrackerTheme {
-                HabitTrackerApp(habits, calendar, settings, timer, tasks, week, restore)
+                HabitTrackerApp(habits, calendar, settings, timer, tasks, week, restore, work)
             }
         }
     }
@@ -147,12 +149,15 @@ private fun HabitTrackerApp(
     tasks: TaskViewModel,
     week: WeekViewModel,
     restore: RestoreViewModel,
+    work: WorkViewModel,
 ) {
     val dailyState by habits.habits.collectAsStateWithLifecycle()
     val active by timer.active.collectAsStateWithLifecycle()
     val startTimer = rememberTimerStarter(timer)
     val sessionCount by settings.sessionCount.collectAsStateWithLifecycle()
     val planCount by settings.planCount.collectAsStateWithLifecycle()
+    val shiftCount by settings.shiftCount.collectAsStateWithLifecycle()
+    val templateCount by settings.templateCount.collectAsStateWithLifecycle()
     val allHabits = (dailyState as? HabitsState.Loaded)?.habits.orEmpty()
     val screen = habits.screen
     val snackbar = remember { SnackbarHostState() }
@@ -235,7 +240,7 @@ private fun HabitTrackerApp(
                         selected = habits.tab == Tab.Calendar,
                         onClick = { habits.selectTab(Tab.Calendar) },
                         icon = { AppIcon(R.drawable.ic_calendar) },
-                        label = { Text(stringResource(R.string.calendar_tab)) },
+                        label = { Text(stringResource(R.string.work_tab)) },
                     )
                     NavigationBarItem(
                         selected = habits.tab == Tab.Tasks,
@@ -273,6 +278,7 @@ private fun HabitTrackerApp(
                         CalendarScreen(
                             model = calendar,
                             state = selectedDay,
+                            work = work,
                             activeTimer = timerBar,
                             launchTimer = { plan -> openTimer(plan.habitId, plan) },
                         )
@@ -364,7 +370,7 @@ private fun HabitTrackerApp(
                 Screen.Export -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
                     ExportScreen(
                         settings, state.habits.size, state.habits.sumOf { it.marks.size.toLong() },
-                        sessionCount, planCount,
+                        sessionCount, planCount, shiftCount, templateCount,
                     )
                 }
             }

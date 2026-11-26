@@ -34,6 +34,10 @@ internal class SettingsViewModel(application: Application) : AndroidViewModel(ap
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     val planCount = app.database.habits().observePlanCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val shiftCount = app.database.work().observeShiftCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val templateCount = app.database.work().observeTemplateCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     private val backup = BackupExporter(app.database.habits(), app.contentResolver)
     private val updates = GitHubUpdates(app)
 

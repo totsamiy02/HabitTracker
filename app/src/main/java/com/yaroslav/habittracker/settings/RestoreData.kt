@@ -13,6 +13,8 @@ import com.yaroslav.habittracker.planning.PlanSkip
 import com.yaroslav.habittracker.tasks.ChecklistTask
 import com.yaroslav.habittracker.timer.FocusSession
 import com.yaroslav.habittracker.timer.SessionHabit
+import com.yaroslav.habittracker.work.ShiftTemplate
+import com.yaroslav.habittracker.work.WorkShift
 
 internal data class BackupCounts(
     val habits: Int,
@@ -20,12 +22,14 @@ internal data class BackupCounts(
     val sessions: Int,
     val plans: Int,
     val tasks: Int,
+    val shifts: Int = 0,
+    val templates: Int = 0,
 ) {
-    val hasRecords: Boolean get() = habits + marks + sessions + plans + tasks > 0
+    val hasRecords: Boolean get() = habits + marks + sessions + plans + tasks + shifts + templates > 0
 }
 
 internal fun HabitSnapshot.counts() =
-    BackupCounts(habits.size, completions.size, sessions.size, plans.size, tasks.size)
+    BackupCounts(habits.size, completions.size, sessions.size, plans.size, tasks.size, shifts.size, templates.size)
 
 @Dao
 internal interface RestoreDao {
@@ -36,7 +40,9 @@ internal interface RestoreDao {
             (SELECT count(*) FROM habit_completions) AS marks,
             (SELECT count(*) FROM focus_sessions) AS sessions,
             (SELECT count(*) FROM day_plans) AS plans,
-            (SELECT count(*) FROM tasks) AS tasks
+            (SELECT count(*) FROM tasks) AS tasks,
+            (SELECT count(*) FROM work_shifts) AS shifts,
+            (SELECT count(*) FROM shift_templates) AS templates
         """,
     )
     suspend fun counts(): BackupCounts
@@ -52,6 +58,12 @@ internal interface RestoreDao {
 
     @Query("DELETE FROM tasks")
     suspend fun clearTasks()
+
+    @Query("DELETE FROM work_shifts")
+    suspend fun clearShifts()
+
+    @Query("DELETE FROM shift_templates")
+    suspend fun clearTemplates()
 
     @Insert
     suspend fun insertHabits(items: List<Habit>)
@@ -73,6 +85,12 @@ internal interface RestoreDao {
 
     @Insert
     suspend fun insertTasks(items: List<ChecklistTask>)
+
+    @Insert
+    suspend fun insertShifts(items: List<WorkShift>)
+
+    @Insert
+    suspend fun insertTemplates(items: List<ShiftTemplate>)
 }
 
 internal sealed interface RestoreResult {
@@ -95,6 +113,8 @@ internal class RestoreRepository(private val database: HabitDatabase) {
         dao.clearPlans()
         dao.clearHabits()
         dao.clearTasks()
+        dao.clearShifts()
+        dao.clearTemplates()
         dao.insertHabits(snapshot.habits)
         dao.insertMarks(snapshot.completions)
         dao.insertPlans(snapshot.plans)
@@ -102,6 +122,8 @@ internal class RestoreRepository(private val database: HabitDatabase) {
         dao.insertSessions(snapshot.sessions)
         dao.insertLinks(snapshot.links)
         dao.insertTasks(snapshot.tasks)
+        dao.insertShifts(snapshot.shifts)
+        dao.insertTemplates(snapshot.templates)
         RestoreResult.Applied
     }
 }

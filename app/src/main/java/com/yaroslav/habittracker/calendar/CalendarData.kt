@@ -81,6 +81,7 @@ internal data class CalendarDay(
     val marks: List<Habit>,
     val progress: List<HabitProgress>,
     val habits: List<Habit>,
+    val datesWithPlans: Set<Long> = emptySet(),
 )
 
 @Dao
@@ -175,10 +176,8 @@ internal class CalendarRepository(private val database: HabitDatabase) {
             for (session in sessions) session.habits.mapTo(this) { it.id }
             marks.mapTo(this) { it.id }
         }
-        val daysWithEntries = calendar.entryDates(first, last).toMutableSet()
-        for (candidate in first..last) {
-            if (schedule.on(candidate).isNotEmpty()) daysWithEntries.add(candidate)
-        }
+        val datesWithPlans = (first..last).filterTo(mutableSetOf()) { schedule.on(it).isNotEmpty() }
+        val daysWithEntries = calendar.entryDates(first, last).toSet() + datesWithPlans
         CalendarDay(
             date = date,
             daysWithEntries = daysWithEntries,
@@ -187,6 +186,7 @@ internal class CalendarRepository(private val database: HabitDatabase) {
             marks = marks,
             progress = if (habitIds.isEmpty()) emptyList() else habits.records(habitIds).map { it.progress(day) },
             habits = habits.allHabits(),
+            datesWithPlans = datesWithPlans,
         )
     }
 

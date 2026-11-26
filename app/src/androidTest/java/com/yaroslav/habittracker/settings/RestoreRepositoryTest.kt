@@ -16,9 +16,12 @@ import com.yaroslav.habittracker.timer.FocusSession
 import com.yaroslav.habittracker.timer.SessionHabit
 import com.yaroslav.habittracker.timer.TimerMoment
 import com.yaroslav.habittracker.timer.TimerRepository
+import com.yaroslav.habittracker.work.ShiftHours
+import com.yaroslav.habittracker.work.ShiftTemplate
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.json.JSONObject
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -27,6 +30,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RestoreRepositoryTest {
     private val day = LocalDate.of(2026, 11, 26).toEpochDay()
+    private val template = ShiftTemplate(1, "Ночная смена", true, ShiftHours(1_320, 360, 30), 40_000)
+    private val shift = template.shift(day).copy(id = 2, actual = ShiftHours(1_320, 300, 30))
     private val snapshot = HabitSnapshot(
         habitats(),
         listOf(HabitCompletion(8, day)),
@@ -35,6 +40,8 @@ class RestoreRepositoryTest {
         listOf(DayPlan(6, "Учёба", day, 120, 8, 30, WORKDAYS, 5)),
         listOf(PlanSkip(6, day + 1)),
         listOf(ChecklistTask(4, "Собрать конспект", day + 2, true)),
+        shifts = listOf(shift),
+        templates = listOf(template),
     )
 
     @Test
@@ -75,6 +82,25 @@ class RestoreRepositoryTest {
         assertEquals(snapshot, database.habits().snapshot())
         assertEquals(RestoreResult.Applied, repository.replace(decoded.snapshot, repository.counts()))
         assertEquals(decoded.snapshot, database.habits().snapshot())
+    }
+
+    @Test
+    fun versionFourCopyRemainsReadableAndInvalidShiftCannotTouchExistingData() = withDatabase { database ->
+        val repository = RestoreRepository(database)
+        repository.replace(snapshot, repository.counts())
+        val legacy = JSONObject(snapshot.toBackupDocument()).apply {
+            put("formatVersion", 4)
+            remove("shifts")
+            remove("shiftTemplates")
+        }
+        val decoded = readBackup(legacy.toString().byteInputStream())
+        assertEquals(4, decoded.version)
+        assertEquals(snapshot.copy(shifts = emptyList(), templates = emptyList()), decoded.snapshot)
+
+        val damaged = JSONObject(snapshot.toBackupDocument())
+        damaged.getJSONArray("shifts").getJSONObject(0).getJSONObject("actual").put("breakMinutes", 1_439)
+        assertThrows(InvalidBackup::class.java) { readBackup(damaged.toString().byteInputStream()) }
+        assertEquals(snapshot, database.habits().snapshot())
     }
 
     @Test

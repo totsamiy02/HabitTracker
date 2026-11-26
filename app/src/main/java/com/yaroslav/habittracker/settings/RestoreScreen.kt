@@ -117,6 +117,8 @@ private fun BackupReview(copy: BackupCounts, current: BackupCounts? = null) {
             ReviewRow(R.string.backup_sessions, copy.sessions, current?.sessions)
             ReviewRow(R.string.calendar_backup_plans, copy.plans, current?.plans)
             ReviewRow(R.string.task_tab, copy.tasks, current?.tasks)
+            ReviewRow(R.string.work_shifts, copy.shifts, current?.shifts)
+            ReviewRow(R.string.work_templates, copy.templates, current?.templates)
             Text(stringResource(R.string.backup_mosaic), style = MaterialTheme.typography.bodySmall)
         }
     }

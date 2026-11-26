@@ -5,6 +5,8 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yaroslav.habittracker.work.ShiftHours
+import com.yaroslav.habittracker.work.ShiftTemplate
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -97,6 +99,46 @@ class CalendarMigrationTest {
                 assertEquals(7L, snapshot.sessions.single().planId)
                 assertTrue(snapshot.tasks.isEmpty())
                 assertTrue(snapshot.skips.isEmpty())
+            } finally {
+                database.close()
+            }
+        } finally {
+            context.deleteDatabase(name)
+        }
+        Unit
+    }
+
+    @Test
+    fun versionFourDataSurvivesWorkScheduleMigration() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "work-migration-${UUID.randomUUID()}.db"
+        try {
+            context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { old ->
+                createSchema(old, readSchema(4), 4)
+                old.execSQL("INSERT INTO habits (id, name, description) VALUES (9, 'Учёба', '')")
+                old.execSQL("INSERT INTO habit_completions (habitId, day) VALUES (9, 20000)")
+                old.execSQL("INSERT INTO day_plans (id, title, day, minuteOfDay) VALUES (7, 'Конспект', 20000, 540)")
+                old.execSQL("INSERT INTO tasks (id, title, deadlineDay, done) VALUES (3, 'Задача', 20000, 1)")
+            }
+            val database = Room.databaseBuilder(context, HabitDatabase::class.java, name).build()
+            try {
+                val before = database.habits().snapshot()
+                assertEquals("Учёба", before.habits.single().name)
+                assertEquals(20_000L, before.completions.single().day)
+                assertEquals("Конспект", before.plans.single().title)
+                assertTrue(before.tasks.single().done)
+                assertTrue(before.shifts.isEmpty())
+                assertTrue(before.templates.isEmpty())
+
+                val template = ShiftTemplate(title = "Дневная", night = false, hours = ShiftHours(540, 1_080, 30))
+                val templateId = database.work().insertTemplate(template)
+                val shift = template.shift(20_000)
+                val shiftId = database.work().insertShift(shift)
+                assertEquals(1, database.work().updateTemplate(template.copy(id = templateId, title = "Новая")))
+                assertEquals(
+                    before.copy(shifts = listOf(shift.copy(id = shiftId)), templates = listOf(template.copy(id = templateId, title = "Новая"))),
+                    database.habits().snapshot(),
+                )
             } finally {
                 database.close()
             }

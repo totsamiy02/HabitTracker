@@ -5,6 +5,7 @@ import android.net.Uri
 import com.yaroslav.habittracker.habits.HabitDao
 import com.yaroslav.habittracker.habits.HabitSnapshot
 import com.yaroslav.habittracker.habits.INITIAL_MOSAIC_SIDE
+import com.yaroslav.habittracker.work.ShiftHours
 import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +85,26 @@ internal fun HabitSnapshot.toBackupDocument(): String {
             put("done", task.done)
         }
     })
+    val shiftEntries = JSONArray(shifts.map { shift ->
+        JSONObject().apply {
+            put("id", shift.id)
+            put("date", LocalDate.ofEpochDay(shift.day).toString())
+            put("title", shift.title)
+            put("night", shift.night)
+            put("planned", shift.planned.toJson())
+            put("actual", shift.actual?.toJson() ?: JSONObject.NULL)
+            put("hourlyKopecks", shift.hourlyKopecks ?: JSONObject.NULL)
+        }
+    })
+    val templateEntries = JSONArray(templates.map { template ->
+        JSONObject().apply {
+            put("id", template.id)
+            put("title", template.title)
+            put("night", template.night)
+            put("hours", template.hours.toJson())
+            put("hourlyKopecks", template.hourlyKopecks ?: JSONObject.NULL)
+        }
+    })
     return JSONObject().apply {
         put("formatVersion", BACKUP_FORMAT)
         put("mosaic", JSONObject().apply {
@@ -96,5 +117,13 @@ internal fun HabitSnapshot.toBackupDocument(): String {
         put("plans", planEntries)
         put("skips", skipEntries)
         put("tasks", taskEntries)
+        put("shifts", shiftEntries)
+        put("shiftTemplates", templateEntries)
     }.toString(2)
+}
+
+private fun ShiftHours.toJson() = JSONObject().apply {
+    put("startMinute", startMinute)
+    put("endMinute", endMinute)
+    put("breakMinutes", breakMinutes)
 }
