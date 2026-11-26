@@ -1,5 +1,6 @@
 package com.yaroslav.habittracker
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -7,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -32,22 +34,44 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.yaroslav.habittracker.habits.CreateHabitScreen
+import com.yaroslav.habittracker.calendar.CalendarScreen
+import com.yaroslav.habittracker.calendar.CalendarViewModel
+import com.yaroslav.habittracker.calendar.DayPlan
+import com.yaroslav.habittracker.habits.AllHabitsScreen
+import com.yaroslav.habittracker.habits.BulkMarkScreen
 import com.yaroslav.habittracker.habits.HabitDetailsScreen
+import com.yaroslav.habittracker.habits.HabitEditorScreen
+import com.yaroslav.habittracker.habits.HabitProgress
 import com.yaroslav.habittracker.habits.HabitsState
 import com.yaroslav.habittracker.habits.HabitsViewModel
+import com.yaroslav.habittracker.habits.HistoryScreen
+import com.yaroslav.habittracker.habits.ManualTimeScreen
 import com.yaroslav.habittracker.habits.Screen
 import com.yaroslav.habittracker.habits.Tab
 import com.yaroslav.habittracker.habits.TodayScreen
+import com.yaroslav.habittracker.planning.OPEN_PLAN_CALENDAR
+import com.yaroslav.habittracker.planning.WeekScreen
+import com.yaroslav.habittracker.planning.WeekViewModel
+import com.yaroslav.habittracker.planning.reminderDate
 import com.yaroslav.habittracker.settings.ExportScreen
+import com.yaroslav.habittracker.settings.RestoreScreen
+import com.yaroslav.habittracker.settings.RestoreViewModel
 import com.yaroslav.habittracker.settings.SettingsScreen
 import com.yaroslav.habittracker.settings.SettingsViewModel
 import com.yaroslav.habittracker.settings.UpdateScreen
+import com.yaroslav.habittracker.tasks.TaskScreen
+import com.yaroslav.habittracker.tasks.TaskViewModel
+import com.yaroslav.habittracker.timer.ActiveTimerBar
+import com.yaroslav.habittracker.timer.OPEN_TIMER
+import com.yaroslav.habittracker.timer.OPEN_TIMER_FINISH
+import com.yaroslav.habittracker.timer.TimerScreen
+import com.yaroslav.habittracker.timer.TimerViewModel
 import com.yaroslav.habittracker.ui.AppIcon
 import com.yaroslav.habittracker.ui.ErrorScreen
 import com.yaroslav.habittracker.ui.LoadingScreen
 import com.yaroslav.habittracker.ui.theme.HabitTrackerTheme
 import java.time.Duration
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -55,6 +79,11 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val habits by viewModels<HabitsViewModel>()
     private val settings by viewModels<SettingsViewModel>()
+    private val calendar by viewModels<CalendarViewModel>()
+    private val timer by viewModels<TimerViewModel>()
+    private val tasks by viewModels<TaskViewModel>()
+    private val week by viewModels<WeekViewModel>()
+    private val restore by viewModels<RestoreViewModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,9 +98,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        routeNotification(intent)
         setContent {
             HabitTrackerTheme {
-                HabitTrackerApp(habits, settings)
+                HabitTrackerApp(habits, calendar, settings, timer, tasks, week, restore)
             }
         }
     }
@@ -79,13 +109,49 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         habits.refreshDate()
+        timer.reconcile()
+        (application as HabitTrackerApplication).refreshReminders()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        routeNotification(intent)
+    }
+
+    private fun routeNotification(intent: Intent?) {
+        val action = intent?.action ?: return
+        if (action == OPEN_PLAN_CALENDAR) {
+            val date = intent.reminderDate() ?: return
+            calendar.select(date)
+            habits.selectTab(Tab.Calendar)
+            intent.action = null
+            return
+        }
+        if (action != OPEN_TIMER && action != OPEN_TIMER_FINISH) return
+        // External intents only select a screen and cannot control a timer.
+        habits.open(Screen.Timer())
+        timer.requestFromNotification(action == OPEN_TIMER_FINISH)
+        intent.action = null
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HabitTrackerApp(habits: HabitsViewModel, settings: SettingsViewModel) {
+private fun HabitTrackerApp(
+    habits: HabitsViewModel,
+    calendar: CalendarViewModel,
+    settings: SettingsViewModel,
+    timer: TimerViewModel,
+    tasks: TaskViewModel,
+    week: WeekViewModel,
+    restore: RestoreViewModel,
+) {
     val dailyState by habits.habits.collectAsStateWithLifecycle()
+    val active by timer.active.collectAsStateWithLifecycle()
+    val sessionCount by settings.sessionCount.collectAsStateWithLifecycle()
+    val planCount by settings.planCount.collectAsStateWithLifecycle()
+    val allHabits = (dailyState as? HabitsState.Loaded)?.habits.orEmpty()
     val screen = habits.screen
     val snackbar = remember { SnackbarHostState() }
     val notice = habits.notice?.let { stringResource(it) }
@@ -96,7 +162,16 @@ private fun HabitTrackerApp(habits: HabitsViewModel, settings: SettingsViewModel
         }
     }
 
-    BackHandler(enabled = screen != Screen.Home || habits.tab == Tab.Settings) {
+    fun openTimer(habitId: Long? = null, plan: DayPlan? = null) {
+        timer.clearFeedback()
+        habits.open(Screen.Timer(habitId, plan))
+    }
+
+    val timerBar: (@Composable () -> Unit)? = active?.let { running ->
+        { ActiveTimerBar(timer, running, allHabits, open = { openTimer() }) }
+    }
+
+    BackHandler(enabled = screen != Screen.Home || habits.tab != Tab.Today) {
         if (screen == Screen.Home) habits.selectTab(Tab.Today) else habits.goBack()
     }
 
@@ -106,23 +181,43 @@ private fun HabitTrackerApp(habits: HabitsViewModel, settings: SettingsViewModel
         topBar = {
             val title = when (screen) {
                 Screen.Home -> null
-                Screen.CreateHabit -> R.string.new_habit
+                is Screen.HabitEditor -> if (screen.id == null) R.string.new_habit else R.string.edit_habit
                 is Screen.HabitDetails -> R.string.habit
+                is Screen.History -> R.string.habit_history
+                is Screen.EditTime -> if (screen.sessionId == null) R.string.add_time else R.string.edit_time
+                Screen.AllHabits -> R.string.all_habits
+                Screen.BulkMark -> R.string.bulk_mark
+                is Screen.Timer -> if (active == null && timer.saved == null) R.string.timer_new else R.string.timer
                 Screen.Updates -> R.string.app_update
                 Screen.Export -> R.string.export_data
+                Screen.Restore -> R.string.restore_title
+                Screen.Week -> R.string.week_title
             }
             if (title != null) {
-                TopAppBar(
-                    title = { Text(stringResource(title)) },
-                    navigationIcon = {
-                        IconButton(onClick = habits::goBack) {
-                            AppIcon(R.drawable.ic_back, description = stringResource(R.string.back))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                    ),
-                )
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(title)) },
+                        navigationIcon = {
+                            IconButton(onClick = habits::goBack) {
+                                AppIcon(R.drawable.ic_back, description = stringResource(R.string.back))
+                            }
+                        },
+                        actions = {
+                            if (screen is Screen.HabitDetails) {
+                                IconButton(onClick = { habits.open(Screen.HabitEditor(screen.id)) }) {
+                                    AppIcon(R.drawable.ic_habit_edit, description = stringResource(R.string.edit_habit))
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                        ),
+                    )
+                    if (screen !is Screen.Timer && active != null) {
+                        ActiveTimerBar(timer, requireNotNull(active), allHabits, { openTimer() },
+                            Modifier.padding(horizontal = 20.dp))
+                    }
+                }
             }
         },
         bottomBar = {
@@ -133,6 +228,18 @@ private fun HabitTrackerApp(habits: HabitsViewModel, settings: SettingsViewModel
                         onClick = { habits.selectTab(Tab.Today) },
                         icon = { AppIcon(R.drawable.ic_today) },
                         label = { Text(stringResource(R.string.today)) },
+                    )
+                    NavigationBarItem(
+                        selected = habits.tab == Tab.Calendar,
+                        onClick = { habits.selectTab(Tab.Calendar) },
+                        icon = { AppIcon(R.drawable.ic_calendar) },
+                        label = { Text(stringResource(R.string.calendar_tab)) },
+                    )
+                    NavigationBarItem(
+                        selected = habits.tab == Tab.Tasks,
+                        onClick = { habits.selectTab(Tab.Tasks) },
+                        icon = { AppIcon(R.drawable.ic_check) },
+                        label = { Text(stringResource(R.string.task_tab)) },
                     )
                     NavigationBarItem(
                         selected = habits.tab == Tab.Settings,
@@ -150,32 +257,119 @@ private fun HabitTrackerApp(habits: HabitsViewModel, settings: SettingsViewModel
                     Tab.Today -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
                         TodayScreen(
                             state = state,
-                            create = { habits.open(Screen.CreateHabit) },
+                            create = { habits.open(Screen.HabitEditor()) },
                             open = { habits.open(Screen.HabitDetails(it)) },
+                            showAll = { habits.open(Screen.AllHabits) },
+                            openWeek = { habits.open(Screen.Week) },
+                            openBulk = { habits.open(Screen.BulkMark) },
+                            openTimer = { openTimer() },
+                            activeTimer = timerBar,
                         )
+                    }
+                    Tab.Calendar -> {
+                        val selectedDay by calendar.state.collectAsStateWithLifecycle()
+                        CalendarScreen(
+                            model = calendar,
+                            state = selectedDay,
+                            activeTimer = timerBar,
+                            launchTimer = { plan -> openTimer(plan.habitId, plan) },
+                        )
+                    }
+                    Tab.Tasks -> {
+                        val taskState by tasks.tasks.collectAsStateWithLifecycle()
+                        TaskScreen(tasks, taskState, timerBar)
                     }
                     Tab.Settings -> SettingsScreen(
                         openUpdates = { habits.open(Screen.Updates) },
                         openExport = { habits.open(Screen.Export) },
+                        openRestore = { habits.open(Screen.Restore) },
+                        activeTimer = timerBar,
                     )
                 }
-                Screen.CreateHabit -> CreateHabitScreen(habits.creating, habits::createHabit)
-                is Screen.HabitDetails -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
-                    val selected = state.habits.find { it.habit.id == screen.id }
-                    if (selected == null) {
-                        LoadingScreen()
+                is Screen.HabitEditor -> {
+                    if (screen.id == null) {
+                        HabitEditorScreen(null, habits.writing) { name, description, days, goal ->
+                            habits.saveHabit(null, name, description, days, goal)
+                        }
                     } else {
-                        HabitDetailsScreen(selected, habits.markingHabitId != null) {
-                            habits.markToday(screen.id)
+                        WhenHabitLoaded(dailyState, screen.id, habits) { _, progress ->
+                            HabitEditorScreen(progress.habit, habits.writing) { name, description, days, goal ->
+                                habits.saveHabit(screen.id, name, description, days, goal)
+                            }
+                        }
+                    }
+                }
+                is Screen.HabitDetails -> WhenHabitLoaded(dailyState, screen.id, habits) { _, progress ->
+                    HabitDetailsScreen(
+                        progress = progress,
+                        writing = habits.writing,
+                        markToday = { habits.markToday(screen.id) },
+                        undoToday = { habits.setMark(screen.id, LocalDate.now(), complete = false) },
+                        openTimer = { openTimer(screen.id) },
+                        addTime = { habits.open(Screen.EditTime(screen.id)) },
+                        history = { habits.open(Screen.History(screen.id)) },
+                    )
+                }
+                is Screen.History -> WhenHabitLoaded(dailyState, screen.id, habits) { date, progress ->
+                    HistoryScreen(progress, date, habits.writing,
+                        changeMark = { day, checked, previous -> habits.setMark(screen.id, day, checked, previous) },
+                        addTime = { habits.open(Screen.EditTime(screen.id)) },
+                        editTime = { habits.open(Screen.EditTime(screen.id, it)) })
+                }
+                is Screen.EditTime -> WhenHabitLoaded(dailyState, screen.habitId, habits) { date, progress ->
+                    val session = progress.sessions.firstOrNull { it.id == screen.sessionId }
+                    ManualTimeScreen(progress.habit, session, date, habits.writing,
+                        save = { day, duration -> habits.saveManualTime(screen.habitId, day, duration, session?.id) },
+                        remove = session?.let { { habits.removeSession(screen.habitId, it.id) } })
+                }
+                Screen.AllHabits -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
+                    AllHabitsScreen(state, { habits.open(Screen.HabitEditor()) }) {
+                        habits.open(Screen.HabitDetails(it))
+                    }
+                }
+                Screen.BulkMark -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
+                    BulkMarkScreen(state, habits.writing) { habits.markToday(it, closeBulk = true) }
+                }
+                is Screen.Timer -> {
+                    val activePlan by timer.activePlan.collectAsStateWithLifecycle()
+                    TimerScreen(timer, active, allHabits, screen.habitId, screen.plan, activePlan) { session ->
+                        timer.clearFeedback()
+                        if (session.planId != null) {
+                            calendar.select(LocalDate.ofEpochDay(session.day))
+                            habits.selectTab(Tab.Calendar)
+                        } else {
+                            habits.selectTab(Tab.Today)
                         }
                     }
                 }
                 Screen.Updates -> UpdateScreen(settings)
+                Screen.Restore -> RestoreScreen(restore)
+                Screen.Week -> {
+                    val report by week.state.collectAsStateWithLifecycle()
+                    WeekScreen(report, week)
+                }
                 Screen.Export -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
-                    ExportScreen(settings, state.habits.size, state.habits.sumOf { it.completedDays.toLong() })
+                    ExportScreen(
+                        settings, state.habits.size, state.habits.sumOf { it.marks.size.toLong() },
+                        sessionCount, planCount,
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WhenHabitLoaded(
+    state: HabitsState,
+    id: Long,
+    habits: HabitsViewModel,
+    content: @Composable (LocalDate, HabitProgress) -> Unit,
+) {
+    WhenHabitsLoaded(state, habits::retry) { loaded ->
+        val target = loaded.habits.firstOrNull { it.habit.id == id }
+        if (target == null) LoadingScreen()
+        else content(loaded.date, target)
     }
 }
 

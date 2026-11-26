@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="task_tab">Задачи</string>
+    <string name="task_active">Активные</string>
+    <string name="task_all">Все</string>
+    <string name="task_load_error">Не удалось загрузить задачи</string>
+    <string name="task_save_error">Не удалось сохранить задачу</string>
+    <string name="task_empty">Здесь пока нет задач</string>
+    <string name="task_add">Добавить задачу</string>
+    <string name="task_new">Новая задача</string>
+    <string name="task_no_deadline">Без срока</string>
+    <string name="task_deadline">Срок: %1$s</string>
+    <string name="task_set_deadline">Выбрать срок</string>
+    <string name="task_save">Сохранить задачу</string>
+
+    <string name="week_title">План и факт за неделю</string>
+    <string name="week_range_month">%1$d–%2$s</string>
+    <string name="week_range">%1$s — %2$s</string>
+    <string name="week_previous">Предыдущая неделя</string>
+    <string name="week_next">Следующая неделя</string>
+    <string name="week_load_error">Не удалось загрузить статистику</string>
+    <string name="week_empty">Неделя пока без записей</string>
+    <string name="week_empty_description">Укажи длительность плана в календаре или сохрани сессию, чтобы увидеть её на графике.</string>
+    <string name="week_planned">Запланировано</string>
+    <string name="week_plan">План</string>
+    <string name="week_actual_short">Факт</string>
+    <string name="week_day_description">%1$s. План %2$s. Факт %3$s.</string>
+    <string name="week_day_detail">План %1$s · Факт %2$s</string>
+    <string name="week_hours">%1$d ч</string>
+    <string name="week_hours_minutes">%1$d ч %2$d мин</string>
+
+    <string name="plan_duration">Длительность, мин</string>
+    <string name="plan_duration_optional">Необязательно. Учитывается в недельном плане.</string>
+    <string name="plan_duration_invalid">От 1 до 1440 минут</string>
+    <string name="plan_repeat">Повтор</string>
+    <string name="plan_repeat_never">Без повтора</string>
+    <string name="plan_repeat_daily">Ежедневно</string>
+    <string name="plan_repeat_workdays">По будням</string>
+    <string name="plan_repeat_custom">Свои дни</string>
+    <string name="plan_repeat_scope">Что изменить?</string>
+    <string name="plan_repeat_single">Только это занятие</string>
+    <string name="plan_repeat_following">Это и следующие</string>
+    <string name="plan_repeat_date_invalid">Выбери дату в изменяемой части серии, начиная с этого занятия.</string>
+    <string name="plan_reminder">Напоминание</string>
+    <string name="plan_reminder_off">Без напоминания</string>
+    <string name="plan_reminder_now">В момент начала</string>
+    <string name="plan_reminder_before">За %1$d мин</string>
+    <string name="plan_reminder_channel">Напоминания о планах</string>
+    <string name="plan_reminder_generic">Напоминание о занятии</string>
+    <string name="plan_reminder_open">Открыть календарь</string>
+    <string name="plan_reminder_allow">Разрешить уведомления</string>
+    <string name="plan_reminder_settings">Настройки уведомлений</string>
+    <string name="plan_reminder_disabled">Уведомления выключены. План сохранится, а напоминание заработает после разрешения.</string>
+    <string name="plan_reminder_permission_description">HabitTracker показывает уведомление о занятии в выбранное время.</string>
+
+    <string name="restore_title">Восстановление данных</string>
+    <string name="restore_subtitle">Перенести данные из резервной копии</string>
+    <string name="restore_choose">Выбрать файл</string>
+    <string name="restore_hint">Выбери резервную копию HabitTracker. Сначала можно посмотреть её состав.</string>
+    <string name="restore_current">Сейчас</string>
+    <string name="restore_file">В копии</string>
+    <string name="restore_format">Формат копии %1$d</string>
+    <string name="restore_invalid">Файл повреждён или создан другим приложением. Текущие данные сохранены.</string>
+    <string name="restore_unsupported">Эта версия HabitTracker не поддерживает формат копии. Текущие данные сохранены.</string>
+    <string name="restore_read_error">Не удалось открыть файл. Выбери копию заново.</string>
+    <string name="restore_write_error">Восстановление не удалось. Текущие данные сохранены.</string>
+    <string name="restore_reading">Проверяем копию…</string>
+    <string name="restore_writing">Восстанавливаем данные…</string>
+    <string name="restore_saved">Данные восстановлены</string>
+    <string name="restore_replace_title">Заменить текущие данные?</string>
+    <string name="restore_replace_text">Привычки, история, планы и задачи будут заменены данными из копии.</string>
+    <string name="restore_replace">Заменить данные</string>
+    <string name="restore_apply">Восстановить</string>
+    <string name="restore_changed">Данные изменились после просмотра. Проверь обновлённое сравнение.</string>
+    <string name="restore_timer">Сначала закончи или отмени активную сессию таймера.</string>
+</resources>

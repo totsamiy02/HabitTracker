@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
 import com.yaroslav.habittracker.BuildConfig
+import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -32,6 +33,9 @@ internal sealed interface ReleaseCheck {
 
 internal class InvalidUpdateException : IOException("Invalid update APK")
 
+private const val MAX_RELEASE_CHARACTERS = 1_048_576
+private const val MAX_APK_BYTES = 200L * 1024 * 1024
+
 private val apkNamePattern =
     Regex("""HabitTracker-([0-9]+\.[0-9]+\.[0-9]+)-build([1-9][0-9]*)\.apk""")
 
@@ -50,7 +54,7 @@ internal class GitHubUpdates(private val context: Context) {
             when (response.responseCode) {
                 HttpURLConnection.HTTP_NOT_FOUND -> ReleaseCheck.NoRelease
                 HttpURLConnection.HTTP_OK -> {
-                    val payload = response.inputStream.bufferedReader().use { it.readText() }
+                    val payload = response.inputStream.bufferedReader().use { it.readReleasePayload() }
                     val release = parseRelease(JSONObject(payload))
                     if (release.versionCode > BuildConfig.VERSION_CODE) {
                         ReleaseCheck.Available(release)
@@ -74,7 +78,7 @@ internal class GitHubUpdates(private val context: Context) {
             val size = asset.getLong("size")
             requireTrustedHost(uri, setOf("github.com"))
             val expectedPath = "/$repository/releases/download/$tag/$name"
-            if (!uri.path.equals(expectedPath, ignoreCase = true) || size <= 0) {
+            if (!uri.path.equals(expectedPath, ignoreCase = true) || size !in 1..MAX_APK_BYTES) {
                 throw InvalidUpdateException()
             }
             GitHubRelease(
@@ -119,7 +123,7 @@ internal class GitHubUpdates(private val context: Context) {
                     }
                 }
             }
-            verifyApk(partial, release.versionCode)
+            verifyApk(partial, release)
             if (!partial.renameTo(target)) throw IOException("Cannot store downloaded APK")
             target
         } finally {
@@ -127,8 +131,18 @@ internal class GitHubUpdates(private val context: Context) {
         }
     }
 
+    private fun BufferedReader.readReleasePayload(): String = buildString {
+        val buffer = CharArray(4096)
+        while (true) {
+            val count = read(buffer)
+            if (count == -1) break
+            if (length + count > MAX_RELEASE_CHARACTERS) throw InvalidUpdateException()
+            appendRange(buffer, 0, count)
+        }
+    }
+
     @Suppress("DEPRECATION") // Integer flags and legacy signatures support Android 8.
-    private fun verifyApk(file: File, expectedVersion: Long) {
+    private fun verifyApk(file: File, release: GitHubRelease) {
         val manager = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= 28) {
             PackageManager.GET_SIGNING_CERTIFICATES
@@ -141,8 +155,9 @@ internal class GitHubUpdates(private val context: Context) {
 
         val signers = installed.signers()
         if (update.packageName != context.packageName ||
-            update.versionCodeCompat() != expectedVersion ||
-            expectedVersion <= installed.versionCodeCompat() ||
+            update.versionCodeCompat() != release.versionCode ||
+            update.versionName != release.version ||
+            release.versionCode <= installed.versionCodeCompat() ||
             signers.isEmpty() || signers != update.signers()
         ) {
             throw InvalidUpdateException()

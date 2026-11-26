@@ -29,6 +29,10 @@ class HabitDatabaseTest {
             dao.mark(HabitCompletion(habitId, day))
             dao.mark(HabitCompletion(habitId, day))
             dao.mark(HabitCompletion(habitId, day + 1))
+            assertFalse(dao.moveMark(habitId, day - 1, day + 2))
+            assertFalse(dao.moveMark(habitId, day, day + 1))
+            assertTrue(dao.moveMark(habitId, day, day - 1))
+            assertTrue(dao.moveMark(habitId, day - 1, day))
 
             database.close()
             database = builder.build()

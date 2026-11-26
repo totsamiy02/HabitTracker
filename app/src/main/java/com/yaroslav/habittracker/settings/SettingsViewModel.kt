@@ -12,6 +12,8 @@ import com.yaroslav.habittracker.HabitTrackerApplication
 import com.yaroslav.habittracker.R
 import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 internal sealed interface UpdateState {
@@ -28,6 +30,10 @@ internal enum class ExportState { Idle, Writing, Saved, Failed }
 
 internal class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as HabitTrackerApplication
+    val sessionCount = app.database.habits().observeSessionCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val planCount = app.database.habits().observePlanCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     private val backup = BackupExporter(app.database.habits(), app.contentResolver)
     private val updates = GitHubUpdates(app)
 

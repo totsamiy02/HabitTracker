@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +36,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.withResumed
 import com.yaroslav.habittracker.BuildConfig
 import com.yaroslav.habittracker.R
-import com.yaroslav.habittracker.habits.Mosaic
 import com.yaroslav.habittracker.ui.AppIcon
 import com.yaroslav.habittracker.ui.Panel
 import com.yaroslav.habittracker.ui.ScreenContent
@@ -43,7 +43,12 @@ import java.io.File
 import java.text.NumberFormat
 
 @Composable
-internal fun SettingsScreen(openUpdates: () -> Unit, openExport: () -> Unit) {
+internal fun SettingsScreen(
+    openUpdates: () -> Unit,
+    openExport: () -> Unit,
+    openRestore: () -> Unit,
+    activeTimer: (@Composable () -> Unit)?,
+) {
     ScreenContent {
         Text(stringResource(R.string.settings), style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold)
@@ -61,7 +66,7 @@ internal fun SettingsScreen(openUpdates: () -> Unit, openExport: () -> Unit) {
                         ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Mosaic(1, Modifier.size(42.dp))
+                        AppIcon(R.drawable.ic_launcher_foreground, Modifier.size(56.dp), tint = Color.Unspecified)
                     }
                     Column {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
@@ -80,8 +85,12 @@ internal fun SettingsScreen(openUpdates: () -> Unit, openExport: () -> Unit) {
             }
         }
 
+        activeTimer?.invoke()
         SettingsRow(R.drawable.ic_update, R.string.app_update, R.string.update_subtitle, openUpdates)
+        Text(stringResource(R.string.backup), style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold)
         SettingsRow(R.drawable.ic_download, R.string.export_data, R.string.export_subtitle, openExport)
+        SettingsRow(R.drawable.ic_backup, R.string.restore_title, R.string.restore_subtitle, openRestore)
     }
 }
 
@@ -113,7 +122,13 @@ private fun SettingsRow(icon: Int, title: Int, subtitle: Int, open: () -> Unit) 
 }
 
 @Composable
-internal fun ExportScreen(model: SettingsViewModel, habitCount: Int, completionCount: Long) {
+internal fun ExportScreen(
+    model: SettingsViewModel,
+    habitCount: Int,
+    completionCount: Long,
+    sessionCount: Int,
+    planCount: Int,
+) {
     val saveDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { destination -> destination?.let(model::exportTo) }
@@ -134,6 +149,10 @@ internal fun ExportScreen(model: SettingsViewModel, habitCount: Int, completionC
                 CountRow(R.string.habits, numberFormat.format(habitCount))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 CountRow(R.string.backup_completions, numberFormat.format(completionCount))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                CountRow(R.string.backup_sessions, numberFormat.format(sessionCount))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                CountRow(R.string.calendar_backup_plans, numberFormat.format(planCount))
                 Text(stringResource(R.string.backup_mosaic), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall)
             }

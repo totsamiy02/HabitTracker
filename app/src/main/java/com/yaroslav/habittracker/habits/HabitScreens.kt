@@ -1,81 +1,109 @@
 package com.yaroslav.habittracker.habits
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yaroslav.habittracker.R
 import com.yaroslav.habittracker.ui.AppIcon
 import com.yaroslav.habittracker.ui.Panel
 import com.yaroslav.habittracker.ui.ScreenContent
-import com.yaroslav.habittracker.ui.theme.HabitTrackerTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val russian = Locale.forLanguageTag("ru-RU")
-private val dateFormat = DateTimeFormatter.ofPattern("EEEE, d MMMM", russian)
+internal val russianLocale: Locale = Locale.forLanguageTag("ru-RU")
+private val todayFormat = DateTimeFormatter.ofPattern("EEEE, d MMMM", russianLocale)
+private val historyFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", russianLocale)
+
+internal fun LocalDate.historyLabel(): String = format(historyFormat)
 
 @Composable
 internal fun TodayScreen(
     state: HabitsState.Loaded,
     create: () -> Unit,
     open: (Long) -> Unit,
+    showAll: () -> Unit,
+    openWeek: () -> Unit,
+    openBulk: () -> Unit,
+    openTimer: () -> Unit,
+    activeTimer: (@Composable () -> Unit)?,
 ) {
     ScreenContent {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(R.string.today), style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold)
-            Text(
-                state.date.format(dateFormat).replaceFirstChar { it.titlecase(russian) },
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Text(stringResource(R.string.today), style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold)
+        Text(state.date.format(todayFormat).replaceFirstChar { it.titlecase(russianLocale) },
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        activeTimer?.invoke()
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(stringResource(R.string.habits), Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            if (activeTimer == null) {
+                FilledTonalIconButton(onClick = openTimer) {
+                    AppIcon(R.drawable.ic_timer_status, description = stringResource(R.string.timer))
+                }
+            }
+            if (state.habits.isNotEmpty()) {
+                FilledTonalIconButton(onClick = create) {
+                    AppIcon(R.drawable.ic_add, description = stringResource(R.string.create_habit))
+                }
+            }
         }
 
         if (state.habits.isEmpty()) {
             FirstHabitCard(create)
         } else {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.habits), style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold)
-                FilledTonalIconButton(onClick = create) {
-                    AppIcon(R.drawable.ic_add, description = stringResource(R.string.create_habit))
-                }
+            val scheduled = state.scheduled
+            if (scheduled.count { !it.completedToday && it.habit.targetMinutes == null } >= 2) {
+                OutlinedButton(openBulk, Modifier.fillMaxWidth()) { Text(stringResource(R.string.bulk_mark)) }
             }
-            for (progress in state.habits) {
+            if (scheduled.isEmpty()) {
+                Text(stringResource(R.string.no_habits_today), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            for (progress in scheduled) {
                 HabitCard(progress) { open(progress.habit.id) }
             }
+            FilledTonalButton(showAll, Modifier.fillMaxWidth()) { Text(stringResource(R.string.all_habits)) }
+        }
+        OutlinedButton(openWeek, Modifier.fillMaxWidth()) { Text(stringResource(R.string.week_title)) }
+    }
+}
+
+@Composable
+internal fun AllHabitsScreen(state: HabitsState.Loaded, create: () -> Unit, open: (Long) -> Unit) {
+    ScreenContent {
+        Button(create, Modifier.fillMaxWidth()) { Text(stringResource(R.string.create_habit)) }
+        for (progress in state.habits) {
+            HabitCard(progress) { open(progress.habit.id) }
         }
     }
 }
@@ -93,9 +121,7 @@ private fun FirstHabitCard(create: () -> Unit) {
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Text(stringResource(R.string.first_habit_hint), textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = create, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.create_habit))
-            }
+            Button(create, Modifier.fillMaxWidth()) { Text(stringResource(R.string.create_habit)) }
         }
     }
 }
@@ -111,155 +137,149 @@ private fun HabitCard(progress: HabitProgress, open: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(progress.habit.name, style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold)
+                HabitDayProgress(progress)
                 Text(
-                    stringResource(if (progress.completedToday) R.string.habit_done else R.string.habit_pending),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                val layout = mosaicLayout(progress.completedDays)
-                Text(
-                    stringResource(R.string.mosaic_progress, progress.completedDays, layout.capacity),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.mosaic_progress, progress.completedDays, mosaicLayout(progress.completedDays).capacity),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Mosaic(progress.completedDays, Modifier.size(68.dp))
+            Mosaic(progress.completedDays, Modifier.size(60.dp))
             AppIcon(R.drawable.ic_next, Modifier.size(18.dp))
         }
     }
 }
 
 @Composable
-internal fun CreateHabitScreen(saving: Boolean, save: (String, String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
+internal fun HabitDayProgress(progress: HabitProgress) {
+    val target = progress.habit.targetMinutes
+    if (target == null) {
+        Text(
+            stringResource(if (progress.completedToday) R.string.habit_done else R.string.habit_pending),
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+        )
+    } else {
+        Text(stringResource(R.string.time_progress, progress.todayMillis / 60_000L, target),
+            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        LinearProgressIndicator(
+            progress = { (progress.todayMillis.toDouble() / (target * 60_000L)).toFloat().coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
-    Box(Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            Modifier.widthIn(max = 560.dp).fillMaxSize().padding(horizontal = 20.dp),
-        ) {
-            Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !saving,
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.habit_name)) },
-                    shape = RoundedCornerShape(14.dp),
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !saving,
-                    minLines = 3,
-                    label = { Text(stringResource(R.string.habit_description)) },
-                    shape = RoundedCornerShape(14.dp),
-                )
+@Composable
+internal fun BulkMarkScreen(state: HabitsState.Loaded, writing: Boolean, save: (Set<Long>) -> Unit) {
+    var selected by rememberSaveable { mutableStateOf(longArrayOf()) }
+    val candidates = state.scheduled.filter { it.habit.targetMinutes == null && !it.completedToday }
+    val eligible = candidates.map { it.habit.id }.toSet()
+    val valid = selected.filter { it in eligible }.toSet()
+    ScreenContent {
+        Text(stringResource(R.string.bulk_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (candidates.isEmpty()) Text(stringResource(R.string.no_habits_today))
+        for (progress in candidates) {
+            val id = progress.habit.id
+            val checked = id in valid
+            Panel(Modifier.fillMaxWidth(), onClick = {
+                if (!writing) selected = (if (checked) selected.filter { it != id }
+                    else selected.toList() + id).toLongArray()
+            }) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Checkbox(checked = checked, onCheckedChange = null)
+                    Column {
+                        Text(progress.habit.name, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.mosaic_progress, progress.completedDays,
+                            mosaicLayout(progress.completedDays).capacity), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
-            Button(
-                onClick = { save(name, description) },
-                enabled = name.isNotBlank() && !saving,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            ) {
-                Text(stringResource(R.string.create))
-            }
+        }
+        Button({ save(valid) }, Modifier.fillMaxWidth(), enabled = valid.isNotEmpty() && !writing) {
+            Text(pluralStringResource(R.plurals.bulk_action, valid.size, valid.size))
         }
     }
 }
 
 @Composable
-internal fun HabitDetailsScreen(progress: HabitProgress, marking: Boolean, markToday: () -> Unit) {
+internal fun HabitDetailsScreen(
+    progress: HabitProgress,
+    writing: Boolean,
+    markToday: () -> Unit,
+    undoToday: () -> Unit,
+    openTimer: () -> Unit,
+    addTime: () -> Unit,
+    history: () -> Unit,
+) {
     val layout = mosaicLayout(progress.completedDays)
+    val timed = progress.habit.targetMinutes != null
 
     ScreenContent {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(progress.habit.name, style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold)
+            Text(progress.habit.name, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
             if (progress.habit.description.isNotBlank()) {
                 Text(progress.habit.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            Text(scheduleLabel(progress.habit.weekdays), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
+        if (timed) HabitDayProgress(progress)
         Panel(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.fillMaxWidth().padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.mosaic), Modifier.weight(1f),
                         style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text(
-                            stringResource(R.string.mosaic_progress, progress.completedDays, layout.capacity),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
+                        Text(stringResource(R.string.mosaic_progress, progress.completedDays, layout.capacity),
+                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
-
                 Mosaic(
                     completedDays = progress.completedDays,
                     modifier = Modifier.widthIn(max = minOf(51.dp * layout.side, 400.dp)).fillMaxWidth(),
-                    highlightNext = !progress.completedToday && layout.capacity > progress.completedDays,
+                    highlightNext = !timed && !progress.completedToday && layout.capacity > progress.completedDays,
                     emphasizeLast = progress.completedToday,
-                    onMarkToday = if (marking || progress.completedToday) null else markToday,
+                    onMarkToday = if (writing || timed || progress.completedToday) null else markToday,
                 )
             }
         }
 
         if (progress.completedToday) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     AppIcon(R.drawable.ic_check)
-                    Text(stringResource(R.string.habit_done_today), fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(stringResource(if (timed) R.string.habit_goal_met else R.string.habit_done_today),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold)
                 }
+            }
+        }
+
+        if (timed) {
+            Button(openTimer, Modifier.fillMaxWidth()) { Text(stringResource(R.string.timer_start_from_habit)) }
+            OutlinedButton(addTime, Modifier.fillMaxWidth()) { Text(stringResource(R.string.add_time)) }
+        } else if (progress.completedToday) {
+            OutlinedButton(undoToday, Modifier.fillMaxWidth(), enabled = !writing) {
+                Text(stringResource(R.string.habit_undo))
             }
         } else {
             if (layout.capacity > progress.completedDays) {
-                Text(
-                    stringResource(R.string.habit_mark_hint),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text(stringResource(R.string.habit_mark_hint), Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = markToday, enabled = !marking, modifier = Modifier.fillMaxWidth()) {
+            Button(markToday, Modifier.fillMaxWidth(), enabled = !writing) {
                 Text(stringResource(R.string.habit_mark_today))
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun FirstHabitPreview() {
-    HabitTrackerTheme(darkTheme = false) {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            TodayScreen(HabitsState.Loaded(LocalDate.of(2026, 11, 26), emptyList()), {}, {})
-        }
+        FilledTonalButton(history, Modifier.fillMaxWidth()) { Text(stringResource(R.string.habit_history)) }
     }
 }

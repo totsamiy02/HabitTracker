@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calendar_tab">Календарь</string>
+    <string name="calendar_add_plan">Добавить план</string>
+    <string name="calendar_new_plan">Новый план</string>
+    <string name="calendar_edit_plan">Изменить план</string>
+    <string name="calendar_edit">Изменить</string>
+    <string name="calendar_save_plan">Сохранить план</string>
+    <string name="calendar_date_field">Дата · %1$s</string>
+    <string name="calendar_time_field">Время · %1$s</string>
+    <string name="calendar_choose_time">Выбери время</string>
+    <string name="calendar_no_habit">Без привязки к привычке</string>
+    <string name="calendar_linked_habit">Привычка · %1$s</string>
+    <string name="calendar_previous_month">Предыдущий месяц</string>
+    <string name="calendar_next_month">Следующий месяц</string>
+    <string name="calendar_day_with_entries">%1$s, есть записи</string>
+    <string name="calendar_empty_day">На этот день пока ничего</string>
+    <string name="calendar_plans">Планы</string>
+    <string name="calendar_plan_label">План</string>
+    <string name="calendar_actual">Фактически</string>
+    <string name="calendar_no_records">Фактических записей пока нет.</string>
+    <string name="calendar_session">Сессия</string>
+    <string name="calendar_session_from_plan">Сессия по плану</string>
+    <string name="calendar_mark">Отметка</string>
+    <string name="calendar_start_timer">Запустить таймер</string>
+    <string name="calendar_timer_plan">%1$s · план на %2$s</string>
+    <string name="calendar_back">К календарю</string>
+    <string name="calendar_event_title">%1$s · %2$s</string>
+    <string name="calendar_duration_minutes">%1$d мин</string>
+    <string name="calendar_duration_seconds">%1$d сек</string>
+    <string name="calendar_load_error">Не удалось загрузить календарь.</string>
+    <string name="calendar_save_error">Не удалось сохранить план. Попробуй ещё раз.</string>
+    <string name="calendar_backup_plans">Планы календаря</string>
+
+    <string-array name="calendar_weekdays">
+        <item>Пн</item>
+        <item>Вт</item>
+        <item>Ср</item>
+        <item>Чт</item>
+        <item>Пт</item>
+        <item>Сб</item>
+        <item>Вс</item>
+    </string-array>
+</resources>
