@@ -15,8 +15,8 @@ android {
         applicationId = "com.yaroslav.habittracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 2
+        versionName = "0.0.2"
         buildConfigField("String", "GITHUB_REPOSITORY", "\"totsamiy02/HabitTracker\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -28,8 +28,8 @@ android {
         }
         release {
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Scoped R8 caused an IllegalAccessError during AndroidX startup.
+                enable = false
             }
         }
     }

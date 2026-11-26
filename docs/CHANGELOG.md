@@ -1,5 +1,12 @@
 # Журнал версий HabitTracker
 
+## 0.0.2 — исправление запуска
+
+- Исправлен запуск подписанного приложения на Android 17. Пакет и ключ подписи сохранены, APK устанавливается поверх предыдущей версии.
+- GitHub Actions проверяет запуск релизного APK на эмуляторе перед публикацией.
+
+`versionCode: 2` · Android 8.0+ · [Скачать HabitTracker-0.0.2-build2.apk](https://github.com/totsamiy02/HabitTracker/releases/download/v0.0.2/HabitTracker-0.0.2-build2.apk)
+
 ## 0.0.1 — первый выпуск
 
 - Создание простых ежедневных привычек с названием и необязательным описанием.
@@ -8,6 +15,8 @@
 - Экспорт резервной копии в JSON и проверка стабильного обновления через GitHub Releases.
 
 `versionCode: 1` · Android 8.0+ · [Скачать HabitTracker-0.0.1-build1.apk](https://github.com/totsamiy02/HabitTracker/releases/download/v0.0.1/HabitTracker-0.0.1-build1.apk)
+
+Исходный APK `0.0.1` может закрываться при запуске на Android 17. Используй исправленный `0.0.2`.
 
 ## Ведение журнала
 

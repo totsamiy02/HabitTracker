@@ -29,8 +29,14 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
           log-accepted-android-sdk-licenses: false
-      - name: Unit tests, lint and debug build
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Unit tests, lint and build both variants
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease
+      - name: Sign the release variant with the runner's test key
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --out "$RUNNER_TEMP/HabitTracker-startup.apk" \
+            app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Enable emulator acceleration
         run: |
           printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
@@ -44,7 +50,9 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          script: |
+            ./gradlew --no-daemon connectedDebugAndroidTest
+            bash .github/scripts/check-release-startup.sh "$RUNNER_TEMP/HabitTracker-startup.apk"
 
   release:
     name: Publish signed APK
