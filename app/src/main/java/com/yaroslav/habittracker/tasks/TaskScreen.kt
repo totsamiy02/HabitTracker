@@ -115,7 +115,7 @@ internal fun TaskScreen(
 }
 
 @Composable
-private fun TaskCard(task: ChecklistTask, enabled: Boolean, toggle: () -> Unit) {
+internal fun TaskCard(task: ChecklistTask, enabled: Boolean, today: Boolean = false, toggle: () -> Unit) {
     Panel(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth()
@@ -131,10 +131,19 @@ private fun TaskCard(task: ChecklistTask, enabled: Boolean, toggle: () -> Unit) 
                     fontWeight = FontWeight.SemiBold,
                     textDecoration = if (task.done) TextDecoration.LineThrough else TextDecoration.None,
                 )
+                if (!today) {
+                    Text(
+                        task.deadlineDay?.let { calendarDateLabel(LocalDate.ofEpochDay(it)) }
+                            ?: stringResource(R.string.task_no_deadline),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (today && task.done) {
                 Text(
-                    task.deadlineDay?.let { calendarDateLabel(LocalDate.ofEpochDay(it)) }
-                        ?: stringResource(R.string.task_no_deadline),
-                    style = MaterialTheme.typography.bodySmall,
+                    stringResource(R.string.habit_done),
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

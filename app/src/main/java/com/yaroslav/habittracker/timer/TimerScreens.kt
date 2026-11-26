@@ -1,10 +1,5 @@
 package com.yaroslav.habittracker.timer
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +25,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,12 +50,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -133,6 +134,8 @@ internal fun TimerScreen(
     initialHabit: Long?,
     initialPlan: DayPlan?,
     activePlan: DayPlan?,
+    returnToCalendar: Boolean,
+    startTimer: (TimerStartRequest) -> Unit,
     onSaved: (FocusSession) -> Unit,
 ) {
     val saved = model.saved
@@ -142,10 +145,12 @@ internal fun TimerScreen(
                 ?: initialPlan?.takeIf { it.id == active.planId }
             RunningTimerScreen(model, active, habits, plan)
         }
-        saved != null -> SavedTimerScreen(saved, habits) { onSaved(saved) }
+        saved != null -> SavedTimerScreen(saved, habits, returnToCalendar && saved.planId != null) {
+            onSaved(saved)
+        }
         else -> {
             val targets = habits.filter { it.habit.targetMinutes != null || it.habit.id == initialPlan?.habitId }
-            TimerSetupScreen(model, targets, initialHabit, initialPlan)
+            TimerSetupScreen(model, targets, initialHabit, initialPlan, startTimer)
         }
     }
 }
@@ -157,15 +162,10 @@ private fun TimerSetupScreen(
     habits: List<HabitProgress>,
     initialHabit: Long?,
     plan: DayPlan?,
+    startTimer: (TimerStartRequest) -> Unit,
 ) {
-    val context = LocalContext.current
     val plannedHabit = habits.firstOrNull { it.habit.id == plan?.habitId }
-    val remainingSeconds = plannedHabit?.let { progress ->
-        progress.habit.targetMinutes?.let { goal ->
-            ((goal * 60_000L - progress.todayMillis + 999L) / 1_000L).takeIf { it > 0L }
-        }
-    } ?: 25 * 60L
-    val suggestedSeconds = plan?.durationMinutes?.times(60L) ?: remainingSeconds
+    val suggestedSeconds = suggestedPlanSeconds(plan, plannedHabit)
     var countdown by rememberSaveable { mutableStateOf(true) }
     var minutes by rememberSaveable(plan?.id) { mutableStateOf((suggestedSeconds / 60).toString()) }
     var seconds by rememberSaveable(plan?.id) {
@@ -174,19 +174,11 @@ private fun TimerSetupScreen(
     var selected by rememberSaveable(initialHabit) {
         mutableStateOf(initialHabit?.let { longArrayOf(it) } ?: longArrayOf())
     }
-    var explainPermission by rememberSaveable { mutableStateOf(false) }
-    var offeredPermission by rememberSaveable { mutableStateOf(false) }
+
 
     val duration = (minutes.toLongOrNull() ?: 0) * 60_000L + (seconds.toLongOrNull() ?: 0) * 1000L
     val validDuration = duration in 1..MAX_SESSION_MINUTES * 60_000L &&
         (seconds.toIntOrNull() ?: 0) in 0..59
-
-    fun start() {
-        model.start(if (countdown) duration else null, selected.toSet(), plan?.id)
-    }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        start()
-    }
 
     ScreenContent(Modifier.imePadding()) {
         plan?.let { TimerPlanCaption(it) }
@@ -240,14 +232,7 @@ private fun TimerSetupScreen(
 
         Button(
             onClick = {
-                if (Build.VERSION.SDK_INT >= 33 && !offeredPermission &&
-                    context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    offeredPermission = true
-                    explainPermission = true
-                } else {
-                    start()
-                }
+                startTimer(TimerStartRequest(if (countdown) duration else null, selected.toSet(), plan?.id))
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !model.busy && (!countdown || validDuration),
@@ -257,24 +242,6 @@ private fun TimerSetupScreen(
         model.notice?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
     }
 
-    if (explainPermission) {
-        AlertDialog(
-            onDismissRequest = { explainPermission = false },
-            title = { Text(stringResource(R.string.timer_permission_title)) },
-            text = { Text(stringResource(R.string.timer_permission_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    explainPermission = false
-                    if (Build.VERSION.SDK_INT >= 33) request.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }) { Text(stringResource(R.string.timer_permission_allow)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { explainPermission = false; start() }) {
-                    Text(stringResource(R.string.timer_permission_later))
-                }
-            },
-        )
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -289,28 +256,7 @@ private fun RunningTimerScreen(
     val limit = timer.limitMillis
     val elapsed = timer.elapsedAt(now)
     val remaining = timer.remainingAt(now)
-    var confirm by rememberSaveable(timer.id) { mutableStateOf(false) }
-    var resumeOnCancel by rememberSaveable(timer.id) { mutableStateOf(false) }
-
-    fun requestFinish() {
-        resumeOnCancel = timer.running
-        confirm = true
-        if (timer.running) model.toggle(timer)
-    }
-    fun cancelFinish() {
-        if (model.busy) return
-        confirm = false
-        if (resumeOnCancel && !timer.running) model.toggle(timer)
-    }
-
-    val fromNotification = model.confirmFromNotification
-    LaunchedEffect(fromNotification, model.busy) {
-        if (fromNotification && !model.busy) {
-            model.clearConfirmation()
-            resumeOnCancel = false
-            confirm = true
-        }
-    }
+    val requestFinish = rememberTimerFinish(model, timer, elapsed)
     val fraction = if (limit != null) (requireNotNull(remaining).toDouble() / limit).toFloat()
         else (elapsed % 60_000L / 60_000f)
     val note = when {
@@ -341,10 +287,127 @@ private fun RunningTimerScreen(
         Button({ model.toggle(timer) }, Modifier.fillMaxWidth(), enabled = !model.busy) {
             Text(stringResource(if (timer.running) R.string.timer_pause else R.string.timer_resume))
         }
-        OutlinedButton(::requestFinish, Modifier.fillMaxWidth(), enabled = !model.busy) {
+        OutlinedButton(requestFinish, Modifier.fillMaxWidth(), enabled = !model.busy) {
             Text(stringResource(R.string.timer_finish))
         }
         model.notice?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    }
+
+}
+
+
+internal fun suggestedPlanSeconds(plan: DayPlan?, habit: HabitProgress?, recordedMillis: Long = 0L): Long {
+    val planned = plan?.durationMinutes?.times(60_000L)
+    val remaining = if (planned != null) {
+        (planned - recordedMillis).takeIf { it > 0L } ?: planned
+    } else {
+        habit?.habit?.targetMinutes?.let { it * 60_000L - habit.todayMillis }
+    }
+    return if (remaining != null && remaining > 0L) (remaining + 999L) / 1_000L else 25 * 60L
+}
+
+@Composable
+internal fun TodayTimerBar(
+    model: TimerViewModel,
+    timer: ActiveTimer,
+    plan: DayPlan?,
+    habits: List<HabitProgress>,
+    open: () -> Unit,
+) {
+    val now = timerReading(model, timer)
+    val elapsed = timer.elapsedAt(now)
+    val finish = rememberTimerFinish(model, timer, elapsed)
+    val remaining = timer.remainingAt(now)
+    val limit = timer.limitMillis
+    val progress = if (limit != null) (elapsed.toDouble() / limit).toFloat().coerceIn(0f, 1f)
+        else (elapsed % 60_000L / 60_000f)
+    val names = habits.filter { it.habit.id in timer.habitIds }.joinToString(", ") { it.habit.name }
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = colors.primary,
+        contentColor = colors.onPrimary,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f)
+                    .clickable(onClickLabel = stringResource(R.string.today_open_timer), onClick = open)
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.matchParentSize().clearAndSetSemantics {},
+                        color = colors.onPrimary,
+                        trackColor = colors.onPrimary.copy(alpha = 0.3f),
+                        strokeWidth = 2.dp,
+                    )
+                    AppIcon(R.drawable.ic_timer_status, Modifier.size(17.dp), tint = colors.onPrimary)
+                }
+                Column {
+                    Text(
+                        if (timer.running) plan?.title ?: names.ifBlank { stringResource(R.string.timer) }
+                        else stringResource(R.string.timer_paused),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        clockText(remaining ?: elapsed, countdown = remaining != null),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            IconButton(onClick = { model.toggle(timer) }, enabled = !model.busy) {
+                AppIcon(
+                    if (timer.running) R.drawable.ic_timer_pause else R.drawable.ic_timer_play,
+                    description = stringResource(if (timer.running) R.string.timer_pause else R.string.timer_resume),
+                    tint = colors.onPrimary,
+                )
+            }
+            TextButton(
+                onClick = finish,
+                enabled = !model.busy,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = colors.onPrimary,
+                    disabledContentColor = colors.onPrimary.copy(alpha = 0.65f),
+                ),
+            ) { Text(stringResource(R.string.timer_finish), textAlign = TextAlign.Center) }
+        }
+    }
+}
+
+@Composable
+private fun rememberTimerFinish(model: TimerViewModel, timer: ActiveTimer, elapsed: Long): () -> Unit {
+    var confirm by rememberSaveable(timer.id) { mutableStateOf(false) }
+    var resumeOnCancel by rememberSaveable(timer.id) { mutableStateOf(false) }
+
+    fun requestFinish() {
+        resumeOnCancel = timer.running
+        confirm = true
+        if (timer.running) model.toggle(timer)
+    }
+    fun cancelFinish() {
+        if (model.busy) return
+        confirm = false
+        if (resumeOnCancel && !timer.running) model.toggle(timer)
+    }
+
+    val fromNotification = model.confirmFromNotification
+    LaunchedEffect(fromNotification, model.busy) {
+        if (fromNotification && !model.busy) {
+            model.clearConfirmation()
+            resumeOnCancel = false
+            confirm = true
+        }
     }
 
     if (confirm) {
@@ -364,6 +427,8 @@ private fun RunningTimerScreen(
             },
         )
     }
+
+    return ::requestFinish
 }
 
 @Composable
@@ -424,7 +489,12 @@ private fun TimerDial(time: String, note: String, fraction: Float, paused: Boole
 }
 
 @Composable
-private fun SavedTimerScreen(session: FocusSession, habits: List<HabitProgress>, done: () -> Unit) {
+private fun SavedTimerScreen(
+    session: FocusSession,
+    habits: List<HabitProgress>,
+    returnToCalendar: Boolean,
+    done: () -> Unit,
+) {
     ScreenContent {
         AppIcon(R.drawable.ic_check, Modifier.size(52.dp))
         Text(stringResource(R.string.timer_saved), style = MaterialTheme.typography.displaySmall,
@@ -439,7 +509,7 @@ private fun SavedTimerScreen(session: FocusSession, habits: List<HabitProgress>,
             }
         }
         Button(done, Modifier.fillMaxWidth()) {
-            Text(stringResource(if (session.planId != null) R.string.calendar_back else R.string.timer_back_to_today))
+            Text(stringResource(if (returnToCalendar) R.string.calendar_back else R.string.timer_back_to_today))
         }
     }
 }

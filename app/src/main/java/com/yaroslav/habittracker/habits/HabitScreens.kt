@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,65 +37,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 internal val russianLocale: Locale = Locale.forLanguageTag("ru-RU")
-private val todayFormat = DateTimeFormatter.ofPattern("EEEE, d MMMM", russianLocale)
 private val historyFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", russianLocale)
 
 internal fun LocalDate.historyLabel(): String = format(historyFormat)
 
-@Composable
-internal fun TodayScreen(
-    state: HabitsState.Loaded,
-    create: () -> Unit,
-    open: (Long) -> Unit,
-    showAll: () -> Unit,
-    openWeek: () -> Unit,
-    openBulk: () -> Unit,
-    openTimer: () -> Unit,
-    activeTimer: (@Composable () -> Unit)?,
-) {
-    ScreenContent {
-        Text(stringResource(R.string.today), style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold)
-        Text(state.date.format(todayFormat).replaceFirstChar { it.titlecase(russianLocale) },
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        activeTimer?.invoke()
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(stringResource(R.string.habits), Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            if (activeTimer == null) {
-                FilledTonalIconButton(onClick = openTimer) {
-                    AppIcon(R.drawable.ic_timer_status, description = stringResource(R.string.timer))
-                }
-            }
-            if (state.habits.isNotEmpty()) {
-                FilledTonalIconButton(onClick = create) {
-                    AppIcon(R.drawable.ic_add, description = stringResource(R.string.create_habit))
-                }
-            }
-        }
-
-        if (state.habits.isEmpty()) {
-            FirstHabitCard(create)
-        } else {
-            val scheduled = state.scheduled
-            if (scheduled.count { !it.completedToday && it.habit.targetMinutes == null } >= 2) {
-                OutlinedButton(openBulk, Modifier.fillMaxWidth()) { Text(stringResource(R.string.bulk_mark)) }
-            }
-            if (scheduled.isEmpty()) {
-                Text(stringResource(R.string.no_habits_today), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            for (progress in scheduled) {
-                HabitCard(progress) { open(progress.habit.id) }
-            }
-            FilledTonalButton(showAll, Modifier.fillMaxWidth()) { Text(stringResource(R.string.all_habits)) }
-        }
-        OutlinedButton(openWeek, Modifier.fillMaxWidth()) { Text(stringResource(R.string.week_title)) }
-    }
-}
 
 @Composable
 internal fun AllHabitsScreen(state: HabitsState.Loaded, create: () -> Unit, open: (Long) -> Unit) {
@@ -109,7 +54,7 @@ internal fun AllHabitsScreen(state: HabitsState.Loaded, create: () -> Unit, open
 }
 
 @Composable
-private fun FirstHabitCard(create: () -> Unit) {
+internal fun FirstHabitCard(create: () -> Unit) {
     Panel(Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(24.dp),

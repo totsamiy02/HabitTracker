@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_plans_empty">На сегодня планов нет</string>
+    <string name="today_tasks">Задачи на сегодня</string>
+    <string name="today_tasks_empty">На сегодня задач нет</string>
+    <string name="today_tasks_open">Открыть задачи</string>
+    <string name="today_plan_running">Идёт занятие</string>
+    <string name="today_plan_paused">На паузе</string>
+    <string name="today_plan_recorded">Записано %1$s</string>
+    <string name="today_plan_start_again">Ещё</string>
+    <string name="today_plan_start_description">Запустить таймер для «%1$s»</string>
+    <string name="today_open_timer">Открыть таймер</string>
+    <string name="today_timer_saved">Сохранено %1$s</string>
+    <string name="today_timer_saved_cell">Сохранено %1$s. Новая клетка в мозаике.</string>
+    <string name="today_timer_permission_settings">Системные настройки</string>
+    <string name="today_timer_permission_settings_body">Уведомления можно включить в настройках Android. Сам таймер доступен в приложении.</string>
+    <string name="today_goal_remaining">До цели %1$s</string>
+</resources>

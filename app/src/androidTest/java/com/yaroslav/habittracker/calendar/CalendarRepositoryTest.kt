@@ -73,6 +73,7 @@ class CalendarRepositoryTest {
 
             val before = withTimeout(5_000) { calendar.observeDay(date).first() }
             val savedPlan = before.plans.single()
+            assertEquals(listOf(DayPlanProgress(savedPlan, 0L)), calendar.observePlanProgress(date).first())
             assertEquals("Учёба", savedPlan.title)
             assertEquals(planId, savedPlan.id)
             assertEquals(45 * 60_000L, before.progress.single().todayMillis)
@@ -82,12 +83,18 @@ class CalendarRepositoryTest {
             val updated = async(start = CoroutineStart.UNDISPATCHED) {
                 withTimeout(5_000) { calendar.observeDay(date).first { it.sessions.size == 2 } }
             }
+            val updatedPlan = async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeout(5_000) {
+                    calendar.observePlanProgress(date).first { progress -> progress.any { it.recordedMillis > 0 } }
+                }
+            }
             now = TimerMoment(atHour(19), 50_000_000, 1)
             val afternoon = timer.start(75 * 60_000L, emptySet(), planId)
             assertEquals(listOf(habitId), afternoon.habitIds)
             now = now.copy(wallMillis = atHour(19) + 75 * 60_000, elapsedMillis = 54_500_000)
             checkNotNull(timer.finish(afternoon.id, expiredOnly = true))
             val after = updated.await()
+            assertEquals(listOf(DayPlanProgress(savedPlan, 75 * 60_000L)), updatedPlan.await())
 
             assertEquals(listOf(atHour(8), atHour(19)), after.sessions.map { it.session.startedAtMillis })
             assertEquals(listOf(45 * 60_000L, 75 * 60_000L), after.sessions.map { it.session.durationMillis })
@@ -105,6 +112,7 @@ class CalendarRepositoryTest {
             assertEquals(2, originalDay.sessions.size)
             assertEquals(planId, originalDay.sessions.last().session.planId)
             assertEquals(planId, movedDay.plans.single().id)
+            assertEquals(0L, calendar.observePlanProgress(tomorrow).first().single().recordedMillis)
             assertTrue(movedDay.sessions.isEmpty())
             assertFalse(movedDay.progress.single().completedToday)
             assertEquals(setOf(day, tomorrow.toEpochDay()), movedDay.daysWithEntries)

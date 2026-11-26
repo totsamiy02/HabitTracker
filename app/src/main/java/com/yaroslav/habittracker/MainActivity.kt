@@ -48,7 +48,6 @@ import com.yaroslav.habittracker.habits.HistoryScreen
 import com.yaroslav.habittracker.habits.ManualTimeScreen
 import com.yaroslav.habittracker.habits.Screen
 import com.yaroslav.habittracker.habits.Tab
-import com.yaroslav.habittracker.habits.TodayScreen
 import com.yaroslav.habittracker.planning.OPEN_PLAN_CALENDAR
 import com.yaroslav.habittracker.planning.WeekScreen
 import com.yaroslav.habittracker.planning.WeekViewModel
@@ -66,6 +65,8 @@ import com.yaroslav.habittracker.timer.OPEN_TIMER
 import com.yaroslav.habittracker.timer.OPEN_TIMER_FINISH
 import com.yaroslav.habittracker.timer.TimerScreen
 import com.yaroslav.habittracker.timer.TimerViewModel
+import com.yaroslav.habittracker.timer.rememberTimerStarter
+import com.yaroslav.habittracker.today.TodayScreen
 import com.yaroslav.habittracker.ui.AppIcon
 import com.yaroslav.habittracker.ui.ErrorScreen
 import com.yaroslav.habittracker.ui.LoadingScreen
@@ -149,6 +150,7 @@ private fun HabitTrackerApp(
 ) {
     val dailyState by habits.habits.collectAsStateWithLifecycle()
     val active by timer.active.collectAsStateWithLifecycle()
+    val startTimer = rememberTimerStarter(timer)
     val sessionCount by settings.sessionCount.collectAsStateWithLifecycle()
     val planCount by settings.planCount.collectAsStateWithLifecycle()
     val allHabits = (dailyState as? HabitsState.Loaded)?.habits.orEmpty()
@@ -257,13 +259,13 @@ private fun HabitTrackerApp(
                     Tab.Today -> WhenHabitsLoaded(dailyState, habits::retry) { state ->
                         TodayScreen(
                             state = state,
-                            create = { habits.open(Screen.HabitEditor()) },
-                            open = { habits.open(Screen.HabitDetails(it)) },
-                            showAll = { habits.open(Screen.AllHabits) },
-                            openWeek = { habits.open(Screen.Week) },
-                            openBulk = { habits.open(Screen.BulkMark) },
+                            habits = habits,
+                            calendar = calendar,
+                            tasks = tasks,
+                            timer = timer,
+                            active = active,
                             openTimer = { openTimer() },
-                            activeTimer = timerBar,
+                            startTimer = startTimer,
                         )
                     }
                     Tab.Calendar -> {
@@ -332,12 +334,23 @@ private fun HabitTrackerApp(
                 }
                 is Screen.Timer -> {
                     val activePlan by timer.activePlan.collectAsStateWithLifecycle()
-                    TimerScreen(timer, active, allHabits, screen.habitId, screen.plan, activePlan) { session ->
-                        timer.clearFeedback()
-                        if (session.planId != null) {
+                    val returnToCalendar = habits.tab == Tab.Calendar
+                    TimerScreen(
+                        model = timer,
+                        active = active,
+                        habits = allHabits,
+                        initialHabit = screen.habitId,
+                        initialPlan = screen.plan,
+                        activePlan = activePlan,
+                        returnToCalendar = returnToCalendar,
+                        startTimer = startTimer,
+                    ) { session ->
+                        if (returnToCalendar && session.planId != null) {
+                            timer.clearFeedback()
                             calendar.select(LocalDate.ofEpochDay(session.day))
                             habits.selectTab(Tab.Calendar)
                         } else {
+                            if (session.planId == null) timer.clearFeedback()
                             habits.selectTab(Tab.Today)
                         }
                     }

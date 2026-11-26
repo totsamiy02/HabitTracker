@@ -33,6 +33,12 @@ internal sealed interface CalendarState {
     }
 }
 
+internal sealed interface PlanProgressState {
+    data object Loading : PlanProgressState
+    data object Failed : PlanProgressState
+    data class Ready(val entries: List<DayPlanProgress>) : PlanProgressState
+}
+
 internal class CalendarViewModel(
     application: Application,
     private val savedState: SavedStateHandle,
@@ -69,6 +75,11 @@ internal class CalendarViewModel(
     }
 
     fun retry() = query.update { it.copy(attempt = it.attempt + 1) }
+
+    fun observePlanProgress(date: LocalDate) = repository.observePlanProgress(date)
+        .map<List<DayPlanProgress>, PlanProgressState> { PlanProgressState.Ready(it) }
+        .onStart { emit(PlanProgressState.Loading) }
+        .catch { emit(PlanProgressState.Failed) }
 
     fun beginEdit() {
         saveFailed = false

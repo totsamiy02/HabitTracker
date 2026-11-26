@@ -71,6 +71,8 @@ internal data class CalendarSession(
     val habits: List<Habit>,
 )
 
+internal data class DayPlanProgress(val plan: DayPlan, val recordedMillis: Long)
+
 internal data class CalendarDay(
     val date: LocalDate,
     val daysWithEntries: Set<Long>,
@@ -187,6 +189,21 @@ internal class CalendarRepository(private val database: HabitDatabase) {
             habits = habits.allHabits(),
         )
     }
+
+    fun observePlanProgress(date: LocalDate): Flow<List<DayPlanProgress>> =
+        database.invalidationTracker.createFlow("day_plans", "plan_skips", "focus_sessions")
+            .map {
+                database.withTransaction {
+                    val day = date.toEpochDay()
+                    val recordedMillis = calendar.actualSessions(day, day)
+                        .filter { it.planId != null }
+                        .groupingBy { it.planId }
+                        .fold(0L) { total, session -> total + session.durationMillis }
+                    scheduleInRange(day, day).on(day).map { plan ->
+                        DayPlanProgress(plan, recordedMillis[plan.id] ?: 0L)
+                    }
+                }
+            }
 
     fun observeWeek(monday: LocalDate): Flow<List<DayTotals>> =
         database.invalidationTracker.createFlow("day_plans", "plan_skips", "focus_sessions")
